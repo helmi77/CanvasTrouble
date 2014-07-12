@@ -32,26 +32,25 @@ function keyPressed(args)
 	{
 		// W pressed
 		game.player.shooting = true;
-		game.player.bullet = new Bullet(game.player.x + game.player.baseLineWidth / 2, 
-			game.player.y, 1, 200);
+		game.player.bullet = new Bullet(
+			new Vector(game.player.position.x + game.player.baseLineWidth / 2, game.player.position.y), 1, 250
+		);
 	}
-	else if (code === 83)
+	if (code === 83)
 	{
 		// S pressed
-		game.player.movementY = 1;
+		game.player.movement.y = 1;
 	}
-
 	if (code === 68)
 	{
 		// D pressed
-		game.player.movementX = 1;
+		game.player.movement.x = 1;
 	}
-	else if (code === 65)
+	if (code === 65)
 	{
 		// A pressed
-		game.player.movementX = -1;
+		game.player.movement.x = -1;
 	}
-
 	if (code === 16)
 	{
 		// Shift pressed
@@ -68,33 +67,30 @@ function keyReleased(args)
 	if (code === 87)	
 	{
 		// W released
-		game.player.movementY = 0;
 	}
 	if (code === 83)
 	{
 		// S released
-		game.player.movementY = 0;
 	}
 	if (code === 68)
 	{
 		// D released
-		if (game.player.movementX > 0)
+		if (game.player.movement.x > 0)
 		{
-			game.player.movementX -= 1;
+			game.player.movement.x -= 1;
 		}
 	}
 	if (code === 65)
 	{
 		// A released
-		if (game.player.movementX < 0)
+		if (game.player.movement.x < 0)
 		{
-			game.player.movementX += 1;
+			game.player.movement.x += 1;
 		}
 	}
-
 	if (code === 16)
 	{
-		// Shift pressed
+		// Shift released
 	}
 }
 
@@ -106,19 +102,30 @@ function keyReleased(args)
 
 function runClicked()
 {
+	if (game === null)
+	{
+		game = new Game();
+		var boundRun = game.run.bind(game);
+		intervalId = setInterval(boundRun, 1);
+		console.log("Game started");
+	}
+}
+function restartClicked()
+{
+	stopClicked();
 	game = new Game();
 	var boundRun = game.run.bind(game);
 	intervalId = setInterval(boundRun, 1);
-	console.log("Game started");
+	console.log("Game restarted");
 }
-
 function stopClicked()
-{
-	if (intervalId !== null)
+{	
+	if (intervalId !== null && game !== null)
 	{
 		game.clearCanvas();
 		clearInterval(intervalId);
 	}
+	game = null;
 	console.log("Game stopped");
 }
 
@@ -134,16 +141,18 @@ function Game()
 	this.groundColor = '#333';
 	this.roofLevel = 425;
 	this.roofColor = this.groundColor;
-	this.player = new Player(canvas.width / 2, canvas.height - this.groundLevel, 32, 32);
-	this.ball = new Ball(canvas.width / 2, 400, 18, '#333', '#000', 12);
-	this.frameTime = 0;
+	this.spikeHeight = 10;
+	this.spikeWidth = 15;
+	this.player = new Player(new Vector(canvas.width / 2, canvas.height - this.groundLevel), 32, 32);
+	this.ballCollection = new Array();
+	this.ballCollection.push(new Ball(canvas.width - 30, 400, 24, 1, '#333', '#000', 10));
+	this.frameTime = Date.now();
 	this.deltaTime = 0;
 }
 
 Game.prototype.run = function() 
 {
-	var newDeltaTime = (Date.now() - this.frameTime) / 1000;
-	this.deltaTime = (newDeltaTime === 0) ? this.deltaTime : newDeltaTime;
+	this.deltaTime = (Date.now() - this.frameTime) / 1000;
 	this.frameTime = Date.now();
 	this.update();
 }
@@ -152,7 +161,10 @@ Game.prototype.update = function()
 {
 	this.clearCanvas();
 	this.player.update();
-	this.ball.update();
+	for (var ballIndex = 0; ballIndex < this.ballCollection.length; ++ballIndex)
+	{
+		this.ballCollection[ballIndex].update();
+	}
 	this.drawGround();
 	this.drawRoof();
 }
@@ -171,6 +183,21 @@ Game.prototype.drawRoof = function()
 {
 	context.fillStyle = this.roofColor;
 	context.fillRect(0, 0, canvas.width, canvas.height - this.roofLevel);
+	// Draw the spikes which are hanging from the roof
+	context.beginPath();
+	context.moveTo(0, canvas.height - this.roofLevel);
+
+	var spikeCount = canvas.width / game.spikeWidth;
+	for (var spikeIndex = 1; spikeIndex <= spikeCount + 1; ++spikeIndex)
+	{
+		context.lineTo(game.spikeWidth * (spikeIndex - 1) + game.spikeWidth / 2, canvas.height - this.roofLevel + game.spikeHeight);
+		context.lineTo(spikeIndex * game.spikeWidth, canvas.height - this.roofLevel);
+	}
+	context.closePath();
+	context.fill();
+	context.strokeStyle = this.roofColor;
+	context.lineWidth = 1;
+	context.stroke();
 }
 
 /* 
@@ -179,41 +206,45 @@ Game.prototype.drawRoof = function()
  * +---------------------------------------------------+
  */
 
-function Player(x, y, baseLineWidth, height, speed)
+function Player(position, baseLineWidth, height, speed)
 {
 	this.speed = (typeof speed === "undefined") ? 100 : speed;
-	this.x = x;
-	this.y = y;
-	this.movementX = 0;
-	this.movementY = 0;
+	this.position = position;
+	this.movement = new Vector(0, 0);
 	this.baseLineWidth = baseLineWidth;
 	this.height = height;
 	this.shooting = false;
 	this.bullet = null;
+	this.strokeWidth = 6;
+}
+
+Player.prototype.collisionDetected = function(collider)
+{
+	console.log("Player collided with " + collider);
 }
 
 Player.prototype.draw = function()
 {
 	context.beginPath();
-	context.moveTo(this.x, this.y);
-	context.lineTo(this.x + this.baseLineWidth, this.y);
-	context.lineTo(this.x + this.baseLineWidth / 2, this.y - this.height);
+	context.moveTo(this.position.x, this.position.y);
+	context.lineTo(this.position.x + this.baseLineWidth, this.position.y);
+	context.lineTo(this.position.x + this.baseLineWidth / 2, this.position.y - this.height);
 	context.closePath();
 
 	context.strokeStyle = "#333";
 	context.fillStyle = "#000";
-	context.lineWidth = 6;
+	context.lineWidth = this.strokeWidth;
 	context.fill();
 	context.stroke();
 }
 
 Player.prototype.update = function()
 {
-	var deltaX = this.movementX * this.speed * game.deltaTime;
+	var deltaX = this.movement.x * this.speed * game.deltaTime;
 
-	if (this.isValidXPosition(this.x + deltaX))
+	if (this.isValidXPosition(this.position.x + deltaX))
 	{
-		this.x += deltaX;
+		this.position.x += deltaX;
 	}
 
 	this.handleBullet();
@@ -251,24 +282,22 @@ Player.prototype.isValidXPosition = function(x)
  * +---------------------------------------------------+
  */
 
-function Bullet(x, y, width, speed)
+function Bullet(position, width, speed)
 {
-	this.originX = x;
-	this.originY = y;
-	this.x = x;
-	this.y = y;
+	this.origin = new Vector(position.x, position.y);
+	this.position = position;
 	this.width = width;
 	this.speed = speed;
 }
 
 Bullet.prototype.move = function()
 {
-	this.y -= this.speed * game.deltaTime;
+	this.position.y -= this.speed * game.deltaTime;
 }
 
 Bullet.prototype.isVisible = function()
 {
-	if (this.y < canvas.height - game.roofLevel)
+	if (this.position.y < canvas.height - game.roofLevel + game.spikeHeight)
 	{
 		return false;
 	}
@@ -280,14 +309,20 @@ Bullet.prototype.draw = function()
 	context.lineWidth = this.width;
 	context.strokeStyle = "#000";
 
-	context.moveTo(this.originX, this.originY);
-	context.lineTo(this.x, this.y);
+	context.moveTo(this.origin.x, this.origin.y);
+	context.lineTo(this.position.x, this.position.y);
 	var arrowHeadHeight = 8;
 	var arrowHeadWidth = 6;
-	context.moveTo(this.x + arrowHeadWidth, this.y + arrowHeadHeight);
-	context.lineTo(this.x, this.y);
-	context.lineTo(this.x - arrowHeadWidth, this.y + arrowHeadHeight);
+	context.moveTo(this.position.x + arrowHeadWidth, this.position.y + arrowHeadHeight);
+	context.lineTo(this.position.x, this.position.y);
+	context.lineTo(this.position.x - arrowHeadWidth, this.position.y + arrowHeadHeight);
 	context.stroke();
+}
+
+Bullet.prototype.stop = function()
+{
+	game.player.shooting = false;
+	game.player.bullet = null;
 }
 
 /* 
@@ -296,40 +331,168 @@ Bullet.prototype.draw = function()
  * +---------------------------------------------------+
  */
 
-function Ball(x, y, radius, strokeColor, fillColor, strokeWidth)
+function Ball(x, y, radius, sizeModifier, strokeColor, fillColor, strokeWidth, bounce)
 {
 	this.x = x;
 	this.y = y;
 	this.radius = radius;
-	this.speed = 0.25;
+	this.actualRadius = radius * sizeModifier;
+	this.speed = 80;
+	this.sizeModifier = sizeModifier;
 	this.direction = 1;
 	this.strokeColor = strokeColor;
 	this.fillColor = fillColor;
 	this.strokeWidth = strokeWidth;
+	this.wasOutside = false;
+	this.bounceFunction = (typeof bounce === "undefined") ? null : bounce;
+	this.offsetX = 0;
+	var ball = this;
+	this.movementFunction = function(x)
+	{
+		// Formula: abs(sin(x / 60)) * 150 - 45
+		var minHeight = 2 * game.player.height;
+		var heightMultiplier = (150 * ball.sizeModifier);// * ball.sizeModifier < minHeight) ? minHeight : 150 * ball.sizeModifier;
+		var widthMultiplier = 1 / (60 * ball.sizeModifier);//  + (1 - ball.sizeModifier));
+		return canvas.height - (game.groundLevel + ball.radius * ball.sizeModifier + Math.abs(Math.sin((x - ball.offsetX) * widthMultiplier)) * heightMultiplier);
+	}
+	this.getYPosition = (this.bounceFunction !== null) ? this.bounceFunction : this.movementFunction;
+}
+
+Ball.prototype.collidesWithPlayer = function()
+{
+	if (this.isInsideCircle(game.player.x - game.player.strokeWidth, game.player.y + game.player.strokeWidth)
+		|| this.isInsideCircle(game.player.x + game.player.baseLineWidth + game.player.strokeWidth, game.player.y + game.player.strokeWidth)
+		|| this.isInsideCircle(game.player.x + game.player.baseLineWidth / 2, game.player.y - game.player.height - game.player.strokeWidth))
+	{
+		return true;
+	}
+	return false;
+}
+
+Ball.prototype.collidesWithBullet = function()
+{
+	if (game.player.bullet == null)
+	{
+		return false;
+	}
+	if (this.isInsideCircle(game.player.bullet.position.x, this.y))
+	{
+		return this.y >= game.player.bullet.position.y;
+	}
+	return false;
+}
+
+Ball.prototype.isInsideCircle = function(x, y)
+{
+	return Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2) < Math.pow(this.actualRadius, 2);
 }
 
 Ball.prototype.draw = function()
 {
 	context.beginPath();
-	context.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+	context.arc(this.x, this.y, this.actualRadius, 0, 2 * Math.PI);
 	context.lineWidth = this.strokeWidth;
 	context.strokeStyle = this.strokeColor;
+	if (this.sizeModifier <= 0.75)
+	{
+		context.strokeStyle = 'darkgreen';
+	}
+	if (this.sizeModifier <= 0.5)
+	{
+		context.strokeStyle = 'orange';
+	}
+	if (this.sizeModifier <= 0.25)
+	{
+		context.strokeStyle = 'darkred';
+	}
+	context.lineWidth *= this.sizeModifier;
 	context.fillStyle = this.fillColor;
 	context.stroke();
 	context.fill();
 }
 
+Ball.prototype.mirror = function(func, mirrorX)
+{	
+	var mirrored = function(x)
+	{
+		return func(2 * mirrorX - x);
+	}
+	return mirrored;
+}
+
 Ball.prototype.update = function()
 {
-	if (this.x + this.radius >= canvas.width || this.x - this.radius <= 0)
+	var outsideRight = this.x + this.actualRadius >= canvas.width;
+	var outsideLeft = this.x - this.actualRadius <= 0;
+	if ((outsideRight || outsideLeft) && !this.wasOutside)
 	{
+		// Should ensure that the change in direction only occurs once
+		this.wasOutside = true;
+		var mirrorX = this.x;
+		if (this.direction === 1)
+		{
+			this.getYPosition = this.mirror(this.getYPosition, mirrorX);
+		}
+		else
+		{
+			this.getYPosition = this.mirror(this.getYPosition, mirrorX);
+		}
 		this.direction *= -1;
 	}
-	var newX = this.x + this.speed * this.direction;
-	var newY = canvas.height - Math.abs(Math.sin(this.x / 60)) * 150 - 45;
+	this.wasOutside = (outsideLeft || outsideRight) ? true : false;
 
-	this.x = newX;
-	this.y = newY;
+	if (this.y + this.radius * this.sizeModifier >= canvas.height - game.groundLevel)
+	{
+		this.offsetX = this.x;
+		this.getYPosition = this.movementFunction;
+		console.log("hit ground");
+	}
+
+	this.x += this.speed * game.deltaTime * this.direction;
+	this.y = this.getYPosition(this.x);
+	
+	if (this.collidesWithPlayer())
+	{
+		game.player.collisionDetected("Ball");
+	}
+	if (this.collidesWithBullet())
+	{
+		console.log("Collided with Bullet");
+		game.player.bullet.stop();
+		var ballIndex = game.ballCollection.indexOf(this);
+		game.ballCollection.splice(ballIndex, 1);
+		if (this.sizeModifier > 0.25)
+		{
+			var offset = this.x;
+			var startY = this.y;
+			var bounce = function(x)
+			{
+				return startY + Math.pow(x - offset - 50, 2) / 50 - 50;
+			}
+			var childSize = this.sizeModifier - 0.25;
+			var rightChild = new Ball(this.x, this.y, this.radius,
+				childSize, '#333', '#000', this.strokeWidth, bounce);
+
+			var leftChild = new Ball(this.x, this.y, this.radius,
+				childSize, '#333', '#000', this.strokeWidth, this.mirror(bounce, offset));
+			leftChild.direction *= -1;
+;
+			game.ballCollection.push(rightChild);
+			game.ballCollection.push(leftChild);
+		}
+	}
 
 	this.draw();
+}
+
+/* 
+ * +---------------------------------------------------+
+ * | Utility - Vector (2D)
+ * +---------------------------------------------------+
+ */
+
+function Vector(x, y)
+{
+	this.x = x;
+	this.y = y;
 }
