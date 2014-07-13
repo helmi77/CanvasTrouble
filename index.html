@@ -1,16 +1,30 @@
 <!DOCTYPE html>
 <html>
-<head>
-	<title>Canvas</title>
-</head>
-<body>
-<center>
-<canvas id="canvas" style="border: 1px solid #333;" width="800" height="500"></canvas>
-<br />
-<button onclick="runClicked()">Run</button>
-<button onclick="restartClicked()">Restart</button>
-<button onclick="stopClicked()">Stop</button>
-<script type="text/javascript" src="script.js"></script>
-</center>
-</body>
+	<head>
+		<title>Canvas</title>
+		<style type="text/css">
+			article
+			{
+				text-align: center;
+				margin: 0 auto;
+			}
+			canvas#canvas
+			{
+				border: 1px solid #333;
+			}
+		</style>
+	</head>
+	<body>
+		<article>
+			<canvas id="canvas" width="800" height="500"></canvas>
+
+			<section>
+				<button onclick="runClicked()">Run</button>
+				<button onclick="restartClicked()">Restart</button>
+				<button onclick="stopClicked()">Stop</button>
+			</section>
+		</article>
+
+		<script type="text/javascript" src="script.js"></script>
+	</body>
 </html>
