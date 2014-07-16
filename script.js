@@ -370,9 +370,11 @@ function Ball(x, y, radius, sizeModifier, strokeColor, fillColor, strokeWidth, b
 
 Ball.prototype.collidesWithPlayer = function()
 {
-	if (this.isInsideCircle(game.player.x - game.player.strokeWidth, game.player.y + game.player.strokeWidth)
-		|| this.isInsideCircle(game.player.x + game.player.baseLineWidth + game.player.strokeWidth, game.player.y + game.player.strokeWidth)
-		|| this.isInsideCircle(game.player.x + game.player.baseLineWidth / 2, game.player.y - game.player.height - game.player.strokeWidth))
+	var playerX = game.player.position.x;
+	var playerY = game.player.position.y;
+	if (this.isInsideCircle(playerX - game.player.strokeWidth, playerY + game.player.strokeWidth)
+		|| this.isInsideCircle(playerX + game.player.baseLineWidth + game.player.strokeWidth, playerY + game.player.strokeWidth)
+		|| this.isInsideCircle(playerX + game.player.baseLineWidth / 2, playerY - game.player.height - game.player.strokeWidth))
 	{
 		return true;
 	}
