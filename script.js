@@ -145,7 +145,7 @@ function Game()
 	this.spikeWidth = 15;
 	this.player = new Player(new Vector(canvas.width / 2, canvas.height - this.groundLevel), 32, 32);
 	this.bubbleCollection = new Array();
-	this.bubbleCollection.push(new Bubble(canvas.width - 30, 400, 24, 1, '#333', '#000', 10));
+	this.bubbleCollection.push(new Bubble(new Vector(canvas.width - 30, 400), 24, 1, '#333', '#000', 10));
 	this.frameTime = Date.now();
 	this.deltaTime = 0;
 }
@@ -250,11 +250,11 @@ Player.prototype.drawPlayer = function()
 
 Player.prototype.draw = function()
 {
-	this.drawPlayer();
 	if (this.bullet !== null)
 	{
 		this.bullet.draw();
 	}
+	this.drawPlayer();
 }
 
 Player.prototype.update = function()
@@ -322,16 +322,18 @@ Bullet.prototype.isVisible = function()
 
 Bullet.prototype.draw = function()
 {
-	context.lineWidth = this.width;
-	context.strokeStyle = "#000";
-
-	context.moveTo(this.origin.x, this.origin.y);
-	context.lineTo(this.position.x, this.position.y);
 	var arrowHeadHeight = 8;
 	var arrowHeadWidth = 6;
+
+	context.beginPath();
+	context.moveTo(this.origin.x, this.origin.y);
+	context.lineTo(this.position.x, this.position.y);
 	context.moveTo(this.position.x + arrowHeadWidth, this.position.y + arrowHeadHeight);
 	context.lineTo(this.position.x, this.position.y);
 	context.lineTo(this.position.x - arrowHeadWidth, this.position.y + arrowHeadHeight);
+
+	context.lineWidth = this.width;
+	context.strokeStyle = "#000";
 	context.stroke();
 }
 
@@ -347,10 +349,9 @@ Bullet.prototype.stop = function()
  * +---------------------------------------------------+
  */
 
-function Bubble(x, y, radius, sizeModifier, strokeColor, fillColor, strokeWidth, bounce)
+function Bubble(position, radius, sizeModifier, strokeColor, fillColor, strokeWidth, bounce)
 {
-	this.x = x;
-	this.y = y;
+	this.position = position;
 	this.radius = radius;
 	this.actualRadius = radius * sizeModifier;
 	this.speed = 80;
@@ -393,22 +394,22 @@ Bubble.prototype.collidesWithBullet = function()
 	{
 		return false;
 	}
-	if (this.isInsideCircle(game.player.bullet.position.x, this.y))
+	if (this.isInsideCircle(game.player.bullet.position.x, this.position.y))
 	{
-		return this.y >= game.player.bullet.position.y;
+		return this.position.y >= game.player.bullet.position.y;
 	}
 	return false;
 }
 
 Bubble.prototype.isInsideCircle = function(x, y)
 {
-	return Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2) < Math.pow(this.actualRadius, 2);
+	return Math.pow(x - this.position.x, 2) + Math.pow(y - this.position.y, 2) < Math.pow(this.actualRadius, 2);
 }
 
 Bubble.prototype.draw = function()
 {
 	context.beginPath();
-	context.arc(this.x, this.y, this.actualRadius, 0, 2 * Math.PI);
+	context.arc(this.position.x, this.position.y, this.actualRadius, 0, 2 * Math.PI);
 	context.lineWidth = this.strokeWidth;
 	context.strokeStyle = this.strokeColor;
 	if (this.sizeModifier <= 0.75)
@@ -429,45 +430,29 @@ Bubble.prototype.draw = function()
 	context.fill();
 }
 
-Bubble.prototype.mirror = function(func, mirrorX)
-{	
-	var mirrored = function(x)
-	{
-		return func(2 * mirrorX - x);
-	}
-	return mirrored;
-}
-
 Bubble.prototype.update = function()
 {
-	var outsideRight = this.x + this.actualRadius >= canvas.width;
-	var outsideLeft = this.x - this.actualRadius <= 0;
+	var outsideRight = this.position.x + this.actualRadius >= canvas.width;
+	var outsideLeft = this.position.x - this.actualRadius <= 0;
 	if ((outsideRight || outsideLeft) && !this.wasOutside)
 	{
 		// Should ensure that the change in direction only occurs once
 		this.wasOutside = true;
-		var mirrorX = this.x;
-		if (this.direction === 1)
-		{
-			this.getYPosition = this.mirror(this.getYPosition, mirrorX);
-		}
-		else
-		{
-			this.getYPosition = this.mirror(this.getYPosition, mirrorX);
-		}
+		var mirrorX = this.position.x;
+		this.getYPosition = mirrorFunction(this.getYPosition, mirrorX);
 		this.direction *= -1;
 	}
 	this.wasOutside = (outsideLeft || outsideRight) ? true : false;
 
-	if (this.y + this.radius * this.sizeModifier >= canvas.height - game.groundLevel)
+	if (this.position.y + this.radius * this.sizeModifier >= canvas.height - game.groundLevel)
 	{
-		this.offsetX = this.x;
+		this.offsetX = this.position.x;
 		this.getYPosition = this.movementFunction;
 		console.log("hit ground");
 	}
 
-	this.x += this.speed * game.deltaTime * this.direction;
-	this.y = this.getYPosition(this.x);
+	this.position.x += this.speed * game.deltaTime * this.direction;
+	this.position.y = this.getYPosition(this.position.x);
 	
 	if (this.collidesWithPlayer())
 	{
@@ -481,18 +466,18 @@ Bubble.prototype.update = function()
 		game.bubbleCollection.splice(bubbleIndex, 1);
 		if (this.sizeModifier > 0.25)
 		{
-			var offset = this.x;
-			var startY = this.y;
+			var offset = this.position.x;
+			var startY = this.position.y;
 			var bounce = function(x)
 			{
 				return startY + Math.pow(x - offset - 50, 2) / 50 - 50;
 			}
 			var childSize = this.sizeModifier - 0.25;
-			var rightChild = new Bubble(this.x, this.y, this.radius,
-				childSize, '#333', '#000', this.strokeWidth, bounce);
+			var rightChild = new Bubble(new Vector(this.position), this.radius, childSize, '#333', 
+				'#000', this.strokeWidth, bounce);
 
-			var leftChild = new Bubble(this.x, this.y, this.radius,
-				childSize, '#333', '#000', this.strokeWidth, this.mirror(bounce, offset));
+			var leftChild = new Bubble(new Vector(this.position), this.radius, childSize, '#333', 
+				'#000', this.strokeWidth, mirrorFunction(bounce, offset));
 			leftChild.direction *= -1;
 ;
 			game.bubbleCollection.push(rightChild);
@@ -507,8 +492,31 @@ Bubble.prototype.update = function()
  * +---------------------------------------------------+
  */
 
-function Vector(x, y)
+function Vector()
 {
-	this.x = x;
-	this.y = y;
+	if (arguments.length === 2)
+	{
+		this.x = arguments[0];
+		this.y = arguments[1];
+	}
+	else if (arguments.length === 1)
+	{
+		this.x = arguments[0].x;
+		this.y = arguments[0].y;
+	}
+}
+
+/* 
+ * +---------------------------------------------------+
+ * | Utility - Functions
+ * +---------------------------------------------------+
+ */
+
+function mirrorFunction(func, mirrorX)
+{
+	var mirrored = function(x)
+	{
+		return func(2 * mirrorX - x);
+	}
+	return mirrored;
 }
