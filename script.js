@@ -349,7 +349,7 @@ Bullet.prototype.stop = function()
  * +---------------------------------------------------+
  */
 
-function Bubble(position, radius, sizeModifier, strokeColor, fillColor, strokeWidth, splitCount, bounce)
+function Bubble(position, radius, sizeModifier, strokeColor, fillColor, strokeWidth, splitCount, bounce, maxJumpHeight, maxJumpWidth)
 {
 	this.position = position;
 	this.radius = radius;
@@ -364,17 +364,20 @@ function Bubble(position, radius, sizeModifier, strokeColor, fillColor, strokeWi
 	this.splitCount = splitCount;
 	this.wasOutside = false;
 	this.bounceFunction = (typeof bounce === "undefined") ? null : bounce;
+	this.maxJumpHeight = (typeof maxHeight === "undefined") ? 150 : maxJumpHeight;
+	this.maxJumpWidth = (typeof maxWidth === "undefined") ? 60 : maxJumpWidth;
 	this.offsetX = 0;
 	var bubble = this;
 	this.movementFunction = function(x)
 	{
-		// Formula: abs(sin(x / 60)) * 150 - 45
-		var minHeight = 2 * game.player.height;
-		var heightMultiplier = (150 * bubble.sizeModifier);
+		var minHeight = game.player.height + (game.player.height / 2);
+		var heightMultiplier = (bubble.maxJumpHeight * bubble.sizeModifier);
 		heightMultiplier = (heightMultiplier < minHeight) ? minHeight : heightMultiplier;
-		var temp = 60 * bubble.sizeModifier;
-		temp = (temp < game.player.baseLineWidth) ? game.player.baseLineWidth : temp;
-		var widthMultiplier = 1 / temp;
+
+		var widthDenominator = bubble.maxJumpWidth * bubble.sizeModifier;
+		widthDenominator = (widthDenominator < game.player.baseLineWidth / 1.5) ? game.player.baseLineWidth / 1.5 : widthDenominator;
+		var widthMultiplier = 1 / widthDenominator;
+
 		return canvas.height - (game.groundLevel + bubble.radius * bubble.sizeModifier + Math.abs(Math.sin((x - bubble.offsetX) * widthMultiplier)) * heightMultiplier);
 	}
 	this.getYPosition = (this.bounceFunction !== null) ? this.bounceFunction : this.movementFunction;
@@ -531,74 +534,45 @@ function mirrorFunction(func, mirrorX)
 
 function hsvToRgb(h, s, v) 
 {
-  
 	var rgb, i, data = [];
   
 	if (s === 0) 
 	{
-
 		rgb = [v,v,v];
-
 	} 
 	else 
 	{
-    
 		h = h / 60;
-    
 		i = Math.floor(h);
-    
 		data = [v*(1-s), v*(1-s*(h-i)), v*(1-s*(1-(h-i)))];
-    
+		
 		switch(i) 
 		{
-		
-	case 0:
-        
+			case 0:
 				rgb = [v, data[2], data[0]];
-        
 				break;
-      
 			case 1:
-        
 				rgb = [data[1], v, data[0]];
-        
 				break;
-      
 			case 2:
-        
 				rgb = [data[0], v, data[2]];
-        
 				break;
-      
 			case 3:
-        
 				rgb = [data[0], data[1], v];
-        
 				break;
-      
 			case 4:
-        
 				rgb = [data[2], data[0], v];
-        
 				break;
-      
 			default:
-        
 				rgb = [v, data[0], data[1]];
-        
 				break;
-    
 		}
-  
 	}
   
 	return '#' + rgb.map(function(x)
 	{
-    
 		return ("0" + Math.round(x*255).toString(16)).slice(-2);
-  
 	}).join('');
-
 }
 
 function rgbToHsv() 
