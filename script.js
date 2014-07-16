@@ -145,7 +145,7 @@ function Game()
 	this.spikeWidth = 15;
 	this.player = new Player(new Vector(canvas.width / 2, canvas.height - this.groundLevel), 32, 32);
 	this.bubbleCollection = new Array();
-	this.bubbleCollection.push(new Bubble(new Vector(canvas.width - 30, 400), 24, 1, '#333', '#000', 10));
+	this.bubbleCollection.push(new Bubble(new Vector(canvas.width - 30, 400), 24, 1, '#333', '#000', 10, 5));
 	this.frameTime = Date.now();
 	this.deltaTime = 0;
 }
@@ -349,7 +349,7 @@ Bullet.prototype.stop = function()
  * +---------------------------------------------------+
  */
 
-function Bubble(position, radius, sizeModifier, strokeColor, fillColor, strokeWidth, bounce)
+function Bubble(position, radius, sizeModifier, strokeColor, fillColor, strokeWidth, splitCount, bounce)
 {
 	this.position = position;
 	this.radius = radius;
@@ -360,6 +360,8 @@ function Bubble(position, radius, sizeModifier, strokeColor, fillColor, strokeWi
 	this.strokeColor = strokeColor;
 	this.fillColor = fillColor;
 	this.strokeWidth = strokeWidth;
+	this.sizeStep = 1 / splitCount;
+	this.splitCount = splitCount;
 	this.wasOutside = false;
 	this.bounceFunction = (typeof bounce === "undefined") ? null : bounce;
 	this.offsetX = 0;
@@ -412,11 +414,13 @@ Bubble.prototype.draw = function()
 	context.arc(this.position.x, this.position.y, this.actualRadius, 0, 2 * Math.PI);
 	context.lineWidth = this.strokeWidth;
 	context.strokeStyle = this.strokeColor;
+
+	// TODO: more flexible color selection
 	if (this.sizeModifier <= 0.75)
 	{
 		context.strokeStyle = 'darkgreen';
 	}
-	if (this.sizeModifier <= 0.5)
+	if (this.sizeModifier <= 0.50)
 	{
 		context.strokeStyle = 'orange';
 	}
@@ -428,6 +432,32 @@ Bubble.prototype.draw = function()
 	context.fillStyle = this.fillColor;
 	context.stroke();
 	context.fill();
+}
+
+Bubble.prototype.isBelowGround = function()
+{
+	return this.position.y + this.radius * this.sizeModifier >= canvas.height - game.groundLevel;
+}
+
+Bubble.prototype.split = function()
+{
+	var offset = this.position.x;
+	var startY = this.position.y;
+	var bounce = function(x)
+	{
+		return startY + Math.pow(x - offset - 50, 2) / 50 - 50;
+	}
+
+	var childSize = this.sizeModifier - this.sizeStep;
+	var rightChild = new Bubble(new Vector(this.position), this.radius, childSize, '#333', 
+		'#000', this.strokeWidth, this.splitCount, bounce);
+
+	var leftChild = new Bubble(new Vector(this.position), this.radius, childSize, '#333', 
+		'#000', this.strokeWidth, this.splitCount, mirrorFunction(bounce, offset));
+	leftChild.direction *= -1;
+
+	game.bubbleCollection.push(rightChild);
+	game.bubbleCollection.push(leftChild);
 }
 
 Bubble.prototype.update = function()
@@ -444,7 +474,7 @@ Bubble.prototype.update = function()
 	}
 	this.wasOutside = (outsideLeft || outsideRight) ? true : false;
 
-	if (this.position.y + this.radius * this.sizeModifier >= canvas.height - game.groundLevel)
+	if (this.isBelowGround())
 	{
 		this.offsetX = this.position.x;
 		this.getYPosition = this.movementFunction;
@@ -464,24 +494,10 @@ Bubble.prototype.update = function()
 		game.player.bullet.stop();
 		var bubbleIndex = game.bubbleCollection.indexOf(this);
 		game.bubbleCollection.splice(bubbleIndex, 1);
-		if (this.sizeModifier > 0.25)
+		console.log(this.sizeModifier.toFixed(2) + " / " + this.sizeStep.toFixed(2));
+		if (this.sizeModifier > this.sizeStep)
 		{
-			var offset = this.position.x;
-			var startY = this.position.y;
-			var bounce = function(x)
-			{
-				return startY + Math.pow(x - offset - 50, 2) / 50 - 50;
-			}
-			var childSize = this.sizeModifier - 0.25;
-			var rightChild = new Bubble(new Vector(this.position), this.radius, childSize, '#333', 
-				'#000', this.strokeWidth, bounce);
-
-			var leftChild = new Bubble(new Vector(this.position), this.radius, childSize, '#333', 
-				'#000', this.strokeWidth, mirrorFunction(bounce, offset));
-			leftChild.direction *= -1;
-;
-			game.bubbleCollection.push(rightChild);
-			game.bubbleCollection.push(leftChild);
+			this.split();
 		}
 	}
 }
