@@ -27,11 +27,6 @@ window.addEventListener('keyup', keyReleased, true);
 
 function keyPressed(args)
 {
-	if (game === null || game.player === null)
-	{
-		return;
-	}
-
 	var code = args.keyCode;
 	if (code === 87 && !game.player.shooting)
 	{
@@ -68,11 +63,6 @@ function keyPressed(args)
 
 function keyReleased(args)
 {
-	if (game === null || game.player === null)
-	{
-		return;
-	}
-
 	var code = args.keyCode;
 	if (code === 87)	
 	{
@@ -154,8 +144,8 @@ function Game()
 	this.spikeHeight = 10;
 	this.spikeWidth = 15;
 	this.player = new Player(new Vector(canvas.width / 2, canvas.height - this.groundLevel), 32, 32);
-	this.ballCollection = new Array();
-	this.ballCollection.push(new Ball(canvas.width - 30, 400, 24, 1, '#333', '#000', 10));
+	this.bubbleCollection = new Array();
+	this.bubbleCollection.push(new Bubble(canvas.width - 30, 400, 24, 1, '#333', '#000', 10));
 	this.frameTime = Date.now();
 	this.deltaTime = 0;
 }
@@ -165,15 +155,25 @@ Game.prototype.run = function()
 	this.deltaTime = (Date.now() - this.frameTime) / 1000;
 	this.frameTime = Date.now();
 	this.update();
+	this.draw();
 }
 
 Game.prototype.update = function()
 {
-	this.clearCanvas();
 	this.player.update();
-	for (var ballIndex = 0; ballIndex < this.ballCollection.length; ++ballIndex)
+	for (var bubbleIndex = 0; bubbleIndex < this.bubbleCollection.length; ++bubbleIndex)
 	{
-		this.ballCollection[ballIndex].update();
+		this.bubbleCollection[bubbleIndex].update();
+	}
+}
+
+Game.prototype.draw = function()
+{
+	this.clearCanvas();
+	this.player.draw();
+	for (var bubbleIndex = 0; bubbleIndex < this.bubbleCollection.length; ++bubbleIndex)
+	{
+		this.bubbleCollection[bubbleIndex].draw();
 	}
 	this.drawGround();
 	this.drawRoof();
@@ -233,7 +233,7 @@ Player.prototype.collisionDetected = function(collider)
 	console.log("Player collided with " + collider);
 }
 
-Player.prototype.draw = function()
+Player.prototype.drawPlayer = function()
 {
 	context.beginPath();
 	context.moveTo(this.position.x, this.position.y);
@@ -248,6 +248,15 @@ Player.prototype.draw = function()
 	context.stroke();
 }
 
+Player.prototype.draw = function()
+{
+	this.drawPlayer();
+	if (this.bullet !== null)
+	{
+		this.bullet.draw();
+	}
+}
+
 Player.prototype.update = function()
 {
 	var deltaX = this.movement.x * this.speed * game.deltaTime;
@@ -258,8 +267,6 @@ Player.prototype.update = function()
 	}
 
 	this.handleBullet();
-
-	this.draw();
 }
 
 Player.prototype.handleBullet = function()
@@ -267,10 +274,9 @@ Player.prototype.handleBullet = function()
 	if (this.bullet !== null)
 	{
 		this.bullet.move();
-		this.bullet.draw();
 		if (!this.bullet.isVisible())
 		{
-			console.log("invisible");
+			console.log("Bullet is invisible");
 			this.bullet = null;
 			this.shooting = false;
 		}
@@ -337,11 +343,11 @@ Bullet.prototype.stop = function()
 
 /* 
  * +---------------------------------------------------+
- * | Ball Prototype
+ * | Bubble Prototype
  * +---------------------------------------------------+
  */
 
-function Ball(x, y, radius, sizeModifier, strokeColor, fillColor, strokeWidth, bounce)
+function Bubble(x, y, radius, sizeModifier, strokeColor, fillColor, strokeWidth, bounce)
 {
 	this.x = x;
 	this.y = y;
@@ -356,19 +362,19 @@ function Ball(x, y, radius, sizeModifier, strokeColor, fillColor, strokeWidth, b
 	this.wasOutside = false;
 	this.bounceFunction = (typeof bounce === "undefined") ? null : bounce;
 	this.offsetX = 0;
-	var ball = this;
+	var bubble = this;
 	this.movementFunction = function(x)
 	{
 		// Formula: abs(sin(x / 60)) * 150 - 45
 		var minHeight = 2 * game.player.height;
-		var heightMultiplier = (150 * ball.sizeModifier);// * ball.sizeModifier < minHeight) ? minHeight : 150 * ball.sizeModifier;
-		var widthMultiplier = 1 / (60 * ball.sizeModifier);//  + (1 - ball.sizeModifier));
-		return canvas.height - (game.groundLevel + ball.radius * ball.sizeModifier + Math.abs(Math.sin((x - ball.offsetX) * widthMultiplier)) * heightMultiplier);
+		var heightMultiplier = (150 * bubble.sizeModifier);// * bubble.sizeModifier < minHeight) ? minHeight : 150 * bubble.sizeModifier;
+		var widthMultiplier = 1 / (60 * bubble.sizeModifier);//  + (1 - bubble.sizeModifier));
+		return canvas.height - (game.groundLevel + bubble.radius * bubble.sizeModifier + Math.abs(Math.sin((x - bubble.offsetX) * widthMultiplier)) * heightMultiplier);
 	}
 	this.getYPosition = (this.bounceFunction !== null) ? this.bounceFunction : this.movementFunction;
 }
 
-Ball.prototype.collidesWithPlayer = function()
+Bubble.prototype.collidesWithPlayer = function()
 {
 	var playerX = game.player.position.x;
 	var playerY = game.player.position.y;
@@ -381,7 +387,7 @@ Ball.prototype.collidesWithPlayer = function()
 	return false;
 }
 
-Ball.prototype.collidesWithBullet = function()
+Bubble.prototype.collidesWithBullet = function()
 {
 	if (game.player.bullet == null)
 	{
@@ -394,12 +400,12 @@ Ball.prototype.collidesWithBullet = function()
 	return false;
 }
 
-Ball.prototype.isInsideCircle = function(x, y)
+Bubble.prototype.isInsideCircle = function(x, y)
 {
 	return Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2) < Math.pow(this.actualRadius, 2);
 }
 
-Ball.prototype.draw = function()
+Bubble.prototype.draw = function()
 {
 	context.beginPath();
 	context.arc(this.x, this.y, this.actualRadius, 0, 2 * Math.PI);
@@ -423,7 +429,7 @@ Ball.prototype.draw = function()
 	context.fill();
 }
 
-Ball.prototype.mirror = function(func, mirrorX)
+Bubble.prototype.mirror = function(func, mirrorX)
 {	
 	var mirrored = function(x)
 	{
@@ -432,7 +438,7 @@ Ball.prototype.mirror = function(func, mirrorX)
 	return mirrored;
 }
 
-Ball.prototype.update = function()
+Bubble.prototype.update = function()
 {
 	var outsideRight = this.x + this.actualRadius >= canvas.width;
 	var outsideLeft = this.x - this.actualRadius <= 0;
@@ -465,14 +471,14 @@ Ball.prototype.update = function()
 	
 	if (this.collidesWithPlayer())
 	{
-		game.player.collisionDetected("Ball");
+		game.player.collisionDetected("Bubble");
 	}
 	if (this.collidesWithBullet())
 	{
 		console.log("Collided with Bullet");
 		game.player.bullet.stop();
-		var ballIndex = game.ballCollection.indexOf(this);
-		game.ballCollection.splice(ballIndex, 1);
+		var bubbleIndex = game.bubbleCollection.indexOf(this);
+		game.bubbleCollection.splice(bubbleIndex, 1);
 		if (this.sizeModifier > 0.25)
 		{
 			var offset = this.x;
@@ -482,19 +488,17 @@ Ball.prototype.update = function()
 				return startY + Math.pow(x - offset - 50, 2) / 50 - 50;
 			}
 			var childSize = this.sizeModifier - 0.25;
-			var rightChild = new Ball(this.x, this.y, this.radius,
+			var rightChild = new Bubble(this.x, this.y, this.radius,
 				childSize, '#333', '#000', this.strokeWidth, bounce);
 
-			var leftChild = new Ball(this.x, this.y, this.radius,
+			var leftChild = new Bubble(this.x, this.y, this.radius,
 				childSize, '#333', '#000', this.strokeWidth, this.mirror(bounce, offset));
 			leftChild.direction *= -1;
 ;
-			game.ballCollection.push(rightChild);
-			game.ballCollection.push(leftChild);
+			game.bubbleCollection.push(rightChild);
+			game.bubbleCollection.push(leftChild);
 		}
 	}
-
-	this.draw();
 }
 
 /* 
