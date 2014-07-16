@@ -145,7 +145,7 @@ function Game()
 	this.spikeWidth = 15;
 	this.player = new Player(new Vector(canvas.width / 2, canvas.height - this.groundLevel), 32, 32);
 	this.bubbleCollection = new Array();
-	this.bubbleCollection.push(new Bubble(new Vector(canvas.width - 30, 400), 24, 1, '#333', '#000', 10, 5));
+	this.bubbleCollection.push(new Bubble(new Vector(canvas.width - 30, 400), 24, 1, '#333', '#000', 10, 4));
 	this.frameTime = Date.now();
 	this.deltaTime = 0;
 }
@@ -370,8 +370,11 @@ function Bubble(position, radius, sizeModifier, strokeColor, fillColor, strokeWi
 	{
 		// Formula: abs(sin(x / 60)) * 150 - 45
 		var minHeight = 2 * game.player.height;
-		var heightMultiplier = (150 * bubble.sizeModifier);// * bubble.sizeModifier < minHeight) ? minHeight : 150 * bubble.sizeModifier;
-		var widthMultiplier = 1 / (60 * bubble.sizeModifier);//  + (1 - bubble.sizeModifier));
+		var heightMultiplier = (150 * bubble.sizeModifier);
+		heightMultiplier = (heightMultiplier < minHeight) ? minHeight : heightMultiplier;
+		var temp = 60 * bubble.sizeModifier;
+		temp = (temp < game.player.baseLineWidth) ? game.player.baseLineWidth : temp;
+		var widthMultiplier = 1 / temp;
 		return canvas.height - (game.groundLevel + bubble.radius * bubble.sizeModifier + Math.abs(Math.sin((x - bubble.offsetX) * widthMultiplier)) * heightMultiplier);
 	}
 	this.getYPosition = (this.bounceFunction !== null) ? this.bounceFunction : this.movementFunction;
@@ -415,19 +418,8 @@ Bubble.prototype.draw = function()
 	context.lineWidth = this.strokeWidth;
 	context.strokeStyle = this.strokeColor;
 
-	// TODO: more flexible color selection
-	if (this.sizeModifier <= 0.75)
-	{
-		context.strokeStyle = 'darkgreen';
-	}
-	if (this.sizeModifier <= 0.50)
-	{
-		context.strokeStyle = 'orange';
-	}
-	if (this.sizeModifier <= 0.25)
-	{
-		context.strokeStyle = 'darkred';
-	}
+	// TODO: bubble stroke color
+
 	context.lineWidth *= this.sizeModifier;
 	context.fillStyle = this.fillColor;
 	context.stroke();
@@ -535,4 +527,143 @@ function mirrorFunction(func, mirrorX)
 		return func(2 * mirrorX - x);
 	}
 	return mirrored;
+}
+
+function hsvToRgb(h, s, v) 
+{
+  
+	var rgb, i, data = [];
+  
+	if (s === 0) 
+	{
+
+		rgb = [v,v,v];
+
+	} 
+	else 
+	{
+    
+		h = h / 60;
+    
+		i = Math.floor(h);
+    
+		data = [v*(1-s), v*(1-s*(h-i)), v*(1-s*(1-(h-i)))];
+    
+		switch(i) 
+		{
+		
+	case 0:
+        
+				rgb = [v, data[2], data[0]];
+        
+				break;
+      
+			case 1:
+        
+				rgb = [data[1], v, data[0]];
+        
+				break;
+      
+			case 2:
+        
+				rgb = [data[0], v, data[2]];
+        
+				break;
+      
+			case 3:
+        
+				rgb = [data[0], data[1], v];
+        
+				break;
+      
+			case 4:
+        
+				rgb = [data[2], data[0], v];
+        
+				break;
+      
+			default:
+        
+				rgb = [v, data[0], data[1]];
+        
+				break;
+    
+		}
+  
+	}
+  
+	return '#' + rgb.map(function(x)
+	{
+    
+		return ("0" + Math.round(x*255).toString(16)).slice(-2);
+  
+	}).join('');
+
+}
+
+function rgbToHsv() 
+{
+	var rr, gg, bb,
+		r = arguments[0] / 255,
+		g = arguments[1] / 255,
+		b = arguments[2] / 255,
+		h, s,
+		v = Math.max(r, g, b),
+		diff = v - Math.min(r, g, b),
+		diffc = function(c)
+		{
+			return (v - c) / 6 / diff + 1 / 2;
+		};
+
+	if (diff == 0) 
+	{
+		h = s = 0;
+	} 
+	else 
+	{
+		s = diff / v;
+		rr = diffc(r);
+		gg = diffc(g);
+		bb = diffc(b);
+
+		if (r === v) 
+		{
+			h = bb - gg;
+		}
+		else if (g === v) 
+		{
+			h = (1 / 3) + rr - bb;
+		}
+		else if (b === v) 
+		{
+			h = (2 / 3) + gg - rr;
+		}
+		if (h < 0) 
+		{
+			h += 1;
+		} 
+		else if (h > 1) 
+		{
+			h -= 1;
+		}
+	}
+	return {
+		h: Math.round(h * 360),
+		s: Math.round(s * 100),
+		v: Math.round(v * 100)
+	};
+}
+
+function transition(value, maximum, startPoint, endPoint)
+{
+	return startPoint + (endPoint - startPoint) * value / maximum;
+}
+
+function transitionHsv(value, maximum, h1, s1, v1, h2, s2, v2)
+{
+	return {
+		h: transition(value, maximum, h1, h2), 
+		s: transition(value, maximum, s1, s2), 
+		v: transition(value, maximum, v1, v2)
+	};
 }
