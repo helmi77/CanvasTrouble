@@ -27,6 +27,11 @@ window.addEventListener('keyup', keyReleased, true);
 
 function keyPressed(args)
 {
+	if (game === null || game.player === null)
+	{
+		return;
+	}
+
 	var code = args.keyCode;
 	if (code === 87 && !game.player.shooting)
 	{
@@ -63,6 +68,11 @@ function keyPressed(args)
 
 function keyReleased(args)
 {
+	if (game === null || game.player === null)
+	{
+		return;
+	}
+	
 	var code = args.keyCode;
 	if (code === 87)	
 	{
